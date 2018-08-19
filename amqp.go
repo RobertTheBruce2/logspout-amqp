@@ -10,6 +10,10 @@ import (
 	
 )
 
+func init() {
+	router.AdapterFactories.Register(NewAmqpAdapter, "amqp")
+}
+
 type AmqpAdapter struct {
 	route         *router.Route
 	address       string
