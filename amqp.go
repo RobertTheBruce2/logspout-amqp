@@ -7,6 +7,9 @@ import (
 	"time"
 	"os"
 	"log"
+	"reflect"
+	"text/template"
+	"bytes"
 	
 )
 
@@ -22,6 +25,7 @@ type AmqpAdapter struct {
 	key           string
 	user          string
 	password      string
+	tmpl *template.Template
 }
 
 func NewAmqpAdapter(route *router.Route) (router.LogAdapter, error) {
@@ -33,6 +37,7 @@ func NewAmqpAdapter(route *router.Route) (router.LogAdapter, error) {
 	exchange_type := getEnv("AMQP_EXCHANGE_TYPE", "direct")
 	user := getEnv("AMQP_USER", "guest")
 	password := getEnv("AMQP_PASSWORD", "guest")
+	tmplStr := getEnv("RAW_FORMAT", "{{.Data}}\n")
 
 	return &AmqpAdapter{
 		route:         route,
@@ -42,6 +47,7 @@ func NewAmqpAdapter(route *router.Route) (router.LogAdapter, error) {
 		key:           key,
 		user:          user,
 		password:      password,
+		tmpl:	       tmpl,
 	}, nil
 
 }
@@ -61,16 +67,19 @@ func (a *AmqpAdapter) Stream(logstream chan *router.Message) {
 	// Typically AMQP implementations would channel.ExchangeDeclare(foo bar etc)
 	// but we are assuming the exchange is created on RabbitMQ already
 	for message := range logstream {
-		jsonMessage, err := json.Marshal(processMessage(message))
+		buf := new(bytes.Buffer)
+		err := a.tmpl.Execute(buf, message)
+		
 		if err != nil {
-			continue
+			log.Println("raw:", err)
+			return
 		}
-
+		
 		err = channel.Publish(a.exchange, a.key, false, false, amqp.Publishing{
 			DeliveryMode: amqp.Persistent,
 			Priority:     0,
 			Timestamp:    time.Now(),
-			Body:         jsonMessage,
+			Body:         buf,
 		})
 		failOnError(err, "amqp.message.publish")
 	}
@@ -90,33 +99,3 @@ func failOnError(err error, msg string) {
 		log.Fatalf("%s: %s", msg, err)
 	}
 }
-
-func processMessage(message *router.Message) *map[string]interface{} {
-	dockerInfo := DockerInfo{
-		Name:     message.Container.Name,
-		ID:       message.Container.ID,
-		Image:    message.Container.Config.Image,
-		Hostname: message.Container.Config.Hostname,
-	}
-
-	data := make(map[string]interface{})
-
-	// Try to parse JSON-encoded m.Data. If it wasn't JSON, create an empty object
-	// and use the original data as the message.
-	if err := json.Unmarshal([]byte(message.Data), &data); err != nil {
-		data["message"] = message.Data
-	}
-
-	data["docker"] = dockerInfo
-
-	return &data
-}
-
-// Container Docker info for event data
-type DockerInfo struct {
-	Name     string `json:"name"`
-	ID       string `json:"id"`
-	Image    string `json:"image"`
-	Hostname string `json:"hostname"`
-}
-
