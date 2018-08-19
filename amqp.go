@@ -5,6 +5,9 @@ import (
 	"github.com/streadway/amqp"
 	"encoding/json"
 	"time"
+	"os"
+	"log"
+	
 )
 
 type AmqpAdapter struct {
@@ -66,5 +69,20 @@ func (a *AmqpAdapter) Stream(logstream chan *router.Message) {
 			Body:         jsonMessage,
 		})
 		failOnError(err, "amqp.message.publish")
+	}
+}
+
+func getEnv(envkey string, default_value string) (value string) {
+	value = os.Getenv(envkey)
+	if value == "" {
+		value = default_value
+	}
+	return
+}
+
+
+func failOnError(err error, msg string) {
+	if err != nil {
+		log.Fatalf("%s: %s", msg, err)
 	}
 }
