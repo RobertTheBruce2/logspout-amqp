@@ -103,10 +103,6 @@ func processMessage(message *router.Message) *map[string]interface{} {
 		data["message"] = message.Data
 	}
 
-	for k, v := range fields {
-		data[k] = v
-	}
-
 	data["docker"] = dockerInfo
 
 	return &data
