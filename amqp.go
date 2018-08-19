@@ -79,7 +79,7 @@ func (a *AmqpAdapter) Stream(logstream chan *router.Message) {
 			DeliveryMode: amqp.Persistent,
 			Priority:     0,
 			Timestamp:    time.Now(),
-			Body:         buf,
+			Body:         buf.Bytes(),
 		})
 		failOnError(err, "amqp.message.publish")
 	}
