@@ -26,6 +26,17 @@ type AmqpAdapter struct {
 	tmpl *template.Template
 }
 
+var funcs = template.FuncMap{
+	"toJSON": func(value interface{}) string {
+		bytes, err := json.Marshal(value)
+		if err != nil {
+			log.Println("error marshalling to JSON: ", err)
+			return "null"
+		}
+		return string(bytes)
+	},
+}
+
 func NewAmqpAdapter(route *router.Route) (router.LogAdapter, error) {
 	address := route.Address
 
