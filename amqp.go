@@ -3,11 +3,9 @@ package logspout_amqp
 import (
 	"github.com/gliderlabs/logspout/router"
 	"github.com/streadway/amqp"
-	"encoding/json"
 	"time"
 	"os"
 	"log"
-	"reflect"
 	"text/template"
 	"bytes"
 	
@@ -39,6 +37,11 @@ func NewAmqpAdapter(route *router.Route) (router.LogAdapter, error) {
 	password := getEnv("AMQP_PASSWORD", "guest")
 	tmplStr := getEnv("RAW_FORMAT", "{{.Data}}\n")
 
+	tmpl, err := template.New("raw").Funcs(funcs).Parse(tmplStr)
+	if err != nil {
+		return nil, err
+	}
+	
 	return &AmqpAdapter{
 		route:         route,
 		address:       address,
